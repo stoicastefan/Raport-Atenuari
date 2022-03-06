@@ -1,51 +1,21 @@
-from selenium import webdriver
+import requests
+from bs4 import BeautifulSoup
 
+source = requests.get('http://monitor.jcs.jo/onu/activated_onu.php').text
 
-PATH = "/home/stefan/Documents/chromedriver"
-driver = webdriver.Chrome(PATH)
+soup = BeautifulSoup(source, 'lxml')
+open("srcFile", "w").close()
+f = open("srcFile", "a")
 
-driver.get("http://monitor.jcs.jo/onu/activated_onu.php")
+f.write('{| class="wikitable collapsible sortable"\n')
+raw = soup.find('tr')
+f.write(f'! {raw.find("td").text} ')
+for el in raw.find_all('td')[1::]:
+        f.write(f'  || {el.text}')
+for raw in soup.find_all('tr')[1::]:
+    f.write(f'\n|-\n| {raw.find("td").text} ')
+    for el in raw.find_all('td')[1::]:
+        f.write(f'  || {el.text}')
 
-driver.implicitly_wait(3)
-
-
-body = driver.find_element_by_tag_name('tbody')
-
-file_data = []
-
-body_rows = driver.find_elements_by_tag_name('tr')
-
-
-file_data.append('{| class="wikitable collapsible sortable"'.encode('utf8'))
-data = body_rows[0].find_elements_by_tag_name('td')
-file_row=[]
-file_row.append("! ".encode('utf8'))
-for datum in data:
-    datum_text = datum.text.encode('utf8')
-    file_row.append(datum_text)
-    file_row.append("  || ".encode('utf8'))
-file_data.append(b''.join(file_row[:-1]))
-file_data.append("|- ".encode('utf8'))
-
-index=0
-for row in body_rows[1:]:
-    index +=1
-    print(index)
-    if index == 10:
-        break
-    data = row.find_elements_by_tag_name('td')
-    file_row=[]
-    file_row.append("| ".encode('utf8'))
-    for datum in data:        
-        datum_text = datum.text.encode('utf8')
-        file_row.append(datum_text)
-        file_row.append("  || ".encode('utf8'))
-    file_data.append(b''.join(file_row[:-1]))
-    file_data.append("|- ".encode('utf8'))
-file_data[-1] = "|} ".encode('utf8')
-with open('srcFile' , "wb") as f:
-    f.write(b"\n".join(file_data))
-
-
-
-
+f.write('\n|}')
+f.close()
