@@ -17,5 +17,15 @@ for raw in soup.find_all('tr')[1::]:
     for el in raw.find_all('td')[1::]:
         f.write(f'  || {el.text}')
 
+
+
+bodyPage = soup.body
+bodyPage.table.decompose()
+stats=bodyPage.text.strip()
+stats = stats.split('\n')
+stats='\n|-\n| '.join(stats)
+
+f.write(f'\n|-\n| {stats}')
+
 f.write('\n|}')
 f.close()
