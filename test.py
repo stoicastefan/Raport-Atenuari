@@ -1,8 +1,7 @@
 from encodings import utf_8
 import requests
 from bs4 import BeautifulSoup
-from requests import session
-
+import json
 
 f = open("AllactivatedONUs.html", "r")
 source = f.read()
@@ -57,17 +56,24 @@ def getContract(macOnu, s):
     contract = soup.find("span")
     return contract
 
-payload = {
-    'action'   : 'login',
-    'username' : 'stefan',
-    'password' : 'stefan112'
-}
-login_url='https://erp.jcs.jo/login/'
+def login(name, password):
+    s = requests.Session()
+    
+    site = s.get("https://erp.jcs.jo/login/")
+    bs_content = BeautifulSoup(site.content, "html.parser")
+    token = bs_content.find("input",{"name":"csrfmiddlewaretoken"})["value"]
+    print(token)
+    payload = {
+    'csrfmiddlewaretoken' : token,
+    'username' : name,
+    'password' : password 
+    }
+    res = s.post('https://erp.jcs.jo/login/', payload)
+    print(res.text)
+    print(payload)
+   
+    #s.headers.update({'csrftoken' : json.loads(res.content)['csrfmiddlewaretoken']})
 
-with session() as c:
-    c.post(login_url, data = payload)
-    #for client in linkLoss:
-        #print(getContract(client[5::], c))
-    print(c.get('https://erp.jcs.jo/').text)
 
-
+session = login('stefan', 'stefan112')
+print(session)
