@@ -1,19 +1,18 @@
-from encodings import utf_8
 import requests
 from bs4 import BeautifulSoup
-import json
 
 f = open("AllactivatedONUs.html", "r")
 source = f.read()
 
 soup = BeautifulSoup(source , 'lxml')
-
+# Aici o sa stocam raportul de atenuari
 open("srcFile", "w").close()
 f = open("srcFile", "a")
 
 linkLoss=[]
 highAtt = []
 
+# Se ia raporttul de atenuari din all activated onus si se trece in srcFile intr-un format potrivit pentru wiki
 f.write('{| class="wikitable collapsible sortable"\n')
 raw = soup.find('tr')
 f.write(f'! {raw.find("td").text} ')
@@ -24,18 +23,17 @@ for raw in soup.find_all('tr')[1::]:
     index = 0
     for el in raw.find_all('td')[1::]:
         f.write(f'  || {el.text}')
+    #se testeaza daca statusul e linkLoss si atenuarea in parametri
     status = int(raw.find_all('td')[6].text)
     recive = float(raw.find_all('td')[9].text)
-    print(recive)
-    if recive < -30 :
+    if recive <= -33.5 :
+        linkLoss.append(raw.find_all('td')[7].text)
+    elif recive < -30 :
         highAtt.append(raw.find_all('td')[7].text)
     if status == 0 or status == 4 :
         linkLoss.append(raw.find_all('td')[7].text)
-print('Link loss este:')
-print(linkLoss)        
-print('High att este:')
-print(highAtt)    
-
+        
+# Se prelucreaza statisticile de la finalul tabelului
 bodyPage = soup.body
 bodyPage.table.decompose()
 stats=bodyPage.text.strip()
@@ -47,33 +45,83 @@ f.write(f'\n|-\n| {stats}')
 f.write('\n|}')
 f.close()
 
-#primeste mac onu din tabel si returneaza numarul de contract din erp
+# Functia primeste mac ONU din tabel si returneaza numarul de contract din ERP
 def getContract(macOnu, s):
-    print(f'https://erp.jcs.jo/apartments/manage/?radio_status_nenul=all&filter_location=3&field_location=&filter_code=3&field_code=&filter_contract=3&field_contract=&filter_phone=2&field_phone=&filter_notes=3&field_notes=&filter_status_retea=3&field_status_retea=&filter_package=3&field_package=&filter_odf_port=3&field_odf_port=&filter_pon=3&field_pon=&filter_mac=3&field_mac=&filter_onu_mac=3&field_onu_mac={macOnu}&filter_ip=3&field_ip=&filter_status_onu=3&field_status_onu=')
-    source = s.get(f'https://erp.jcs.jo/apartments/manage/?radio_status_nenul=all&filter_location=3&field_location=&filter_code=3&field_code=&filter_contract=3&field_contract=&filter_phone=2&field_phone=&filter_notes=3&field_notes=&filter_status_retea=3&field_status_retea=&filter_package=3&field_package=&filter_odf_port=3&field_odf_port=&filter_pon=3&field_pon=&filter_mac=3&field_mac=&filter_onu_mac=3&field_onu_mac={macOnu}&filter_ip=3&field_ip=&filter_status_onu=3&field_status_onu=').text
-    print(source)
-    soup = BeautifulSoup(source, 'lxml')
-    contract = soup.find("span")
-    return contract
+    try:
+        
+        source = s.get(f'https://erp.jcs.jo/apartments/manage/?radio_status_nenul=all&filter_location=3&field_location=&filter_code=3&field_code=&filter_contract=3&field_contract=&filter_phone=2&field_phone=&filter_notes=3&field_notes=&filter_status_retea=3&field_status_retea=&filter_package=3&field_package=&filter_odf_port=3&field_odf_port=&filter_pon=3&field_pon=&filter_mac=3&field_mac=&filter_onu_mac=3&field_onu_mac={macOnu}&filter_ip=3&field_ip=&filter_status_onu=3&field_status_onu=').text
+        soup = BeautifulSoup(source, 'lxml')
+        contract = soup.find(class_="contract-number")
+        return contract.text
+    except AttributeError as e:
+        print(f'clientul cu Mac ONU : {macOnu} nu a fost gasit in ERP (asta inseamna ca o sa il cauti de mana in Fiber/ERP si ii faci deranjament sau daca nu il gasesti il anunti pe Dan!')
+        return 'Nu am gasit contractul in ERP'
 
-def login(name, password):
-    s = requests.Session()
-    
-    site = s.get("https://erp.jcs.jo/login/")
-    bs_content = BeautifulSoup(site.content, "html.parser")
-    token = bs_content.find("input",{"name":"csrfmiddlewaretoken"})["value"]
-    print(token)
-    payload = {
-    'csrfmiddlewaretoken' : token,
-    'username' : name,
-    'password' : password 
+# Deschide o sesiune cu care ne logam in ERP din care luam numarul de contract clientilor
+with requests.Session() as s:
+    s.get('https://erp.jcs.jo/login/')
+    login_csrftoken = s.cookies['csrftoken']
+    login_data = {
+        'username': 'stefan',
+        'password': 'stefan112',
+        'csrfmiddlewaretoken': login_csrftoken
     }
-    res = s.post('https://erp.jcs.jo/login/', payload)
-    print(res.text)
-    print(payload)
-   
-    #s.headers.update({'csrftoken' : json.loads(res.content)['csrfmiddlewaretoken']})
+
+    login_request = (
+        s.post(
+            url='https://erp.jcs.jo/login/',
+            data=login_data,
+            headers=dict(Referer='https://erp.jcs.jo/login/')
+        )
+    )
+
+    soup = BeautifulSoup(login_request.text, 'lxml')    
+    try:
+        if(soup.find('title').text == 'Login - JCS ERP'):
+            raise Exception
+        print(f'Statusul login-ului este: {login_request}')
+        for macOnu in linkLoss:
+            print(f'Contractul clientului {macOnu} este {getContract(macOnu[5::], s)}(link loss)')        
+        for macOnu in highAtt:
+            print(f'Contractul clientului {macOnu} este {getContract(macOnu[5::], s)}(high att)')
+    except Exception as e:
+        print('Logarea nu a reusit')
 
 
-session = login('stefan', 'stefan112')
-print(session)
+#Adaugam raportul in wiki
+
+
+
+# Step 2: POST request to log in. Use of main account for login is not
+# supported. Obtain credentials via Special:BotPasswords
+# (https://www.mediawiki.org/wiki/Special:BotPasswords) for lgname & lgpassword
+S = requests.Session()
+URL = 'http://10.1.1.11/mediawiki/api.php'
+# Step 3: GET request to fetch CSRF token
+PARAMS_2 = {
+    "action": "query",
+    "meta": "tokens",
+    "format": "json"
+}
+
+R = S.get(url = URL, params=PARAMS_2)
+DATA = R.json()
+
+CSRF_TOKEN = DATA['query']['tokens']['csrftoken']
+
+# Step 4: POST request to edit a page
+f = open("srcFile", "r")
+PARAMS_3 = {
+    "action": "edit",
+    "title": "Rapoarte_atenuari",
+    "token": CSRF_TOKEN,
+    "format": "json",
+    "prependtext": '[[smth]]\n\n',
+    "section" : "2"
+}
+f.close()
+
+R = S.post(URL, data=PARAMS_3)
+DATA = R.json()
+
+print(DATA)
