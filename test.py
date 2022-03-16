@@ -43,7 +43,7 @@ stats='\n|-\n| '.join(stats)
 f.write(f'\n|-\n| {stats}')
 
 f.write('\n|}')
-f.close()
+#f.close()
 
 # Functia primeste mac ONU din tabel si returneaza numarul de contract din ERP
 def getContract(macOnu, s):
@@ -109,19 +109,40 @@ DATA = R.json()
 
 CSRF_TOKEN = DATA['query']['tokens']['csrftoken']
 
+
+############################
+
+PARAMS = {
+    "action": "parse",
+    "page": "Rapoarte_atenuari",
+    "prop": "wikitext",
+    "formatversion": 2
+}
+
+R = S.get(url=URL, params=PARAMS)
+DATA = R.json()
+
+newContent = DATA["parse"]["wikitext"]["*"]
+
+f.write(newContent)
+print(type(newContent))
+print(newContent[::50])
 # Step 4: POST request to edit a page
-f = open("srcFile", "r")
 PARAMS_3 = {
     "action": "edit",
-    "title": "Rapoarte_atenuari",
+    "title": "Srcc",
     "token": CSRF_TOKEN,
     "format": "json",
-    "prependtext": '[[smth]]\n\n',
-    "section" : "2"
+    "text": DATA["parse"]["wikitext"]["*"][0::358] + "\n\n[[Raport de atenuari 12-12-2003]]\n\n"+DATA["parse"]["wikitext"]["*"][358::],
+    
 }
-f.close()
 
 R = S.post(URL, data=PARAMS_3)
 DATA = R.json()
 
 print(DATA)
+
+
+
+
+
