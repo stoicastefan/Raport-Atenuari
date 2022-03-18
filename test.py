@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+from datetime import date
 
 f = open("AllactivatedONUs.html", "r")
 source = f.read()
@@ -92,56 +93,69 @@ with requests.Session() as s:
 
 
 
-# Step 2: POST request to log in. Use of main account for login is not
-# supported. Obtain credentials via Special:BotPasswords
-# (https://www.mediawiki.org/wiki/Special:BotPasswords) for lgname & lgpassword
+# POST request to log in.
 S = requests.Session()
 URL = 'http://10.1.1.11/mediawiki/api.php'
 # Step 3: GET request to fetch CSRF token
-PARAMS_2 = {
+PARAMS = {
     "action": "query",
     "meta": "tokens",
     "format": "json"
 }
 
-R = S.get(url = URL, params=PARAMS_2)
+R = S.get(url = URL, params=PARAMS)
 DATA = R.json()
 
 CSRF_TOKEN = DATA['query']['tokens']['csrftoken']
 
+# Adauga tabelul cu raportul de atenuari
 
-############################
+f = open("srcFile", "r")
 
 PARAMS = {
+    "action": "edit",
+    "title": "Srcc",
+    "token": CSRF_TOKEN,
+    "format": "json",
+    "text": f.read(),
+    
+}
+
+R = S.post(URL, data=PARAMS)
+DATA = R.json()
+
+# Adauga link cu raportul de aenuare in pagina cu rapoarte
+PARAMS = {
     "action": "parse",
-    "page": "Rapoarte_atenuari",
+    "page": "Srccc",
     "prop": "wikitext",
-    "formatversion": 2
+    "format": "json"
 }
 
 R = S.get(url=URL, params=PARAMS)
 DATA = R.json()
 
 newContent = DATA["parse"]["wikitext"]["*"]
+newContent = newContent.split('[' , 0)
 
-f.write(newContent)
-print(type(newContent))
-print(newContent[::50])
-# Step 4: POST request to edit a page
-PARAMS_3 = {
+today = date.today()
+d = today.strftime("%d.%m.%Y")
+
+print(d)
+
+
+#  POST request to edit a page
+PARAMS = {
     "action": "edit",
-    "title": "Srcc",
+    "title": "Srccc",
     "token": CSRF_TOKEN,
     "format": "json",
-    "text": DATA["parse"]["wikitext"]["*"][0::358] + "\n\n[[Raport de atenuari 12-12-2003]]\n\n"+DATA["parse"]["wikitext"]["*"][358::],
+    "text": f'\n\n[[Raport pentru atenuari {d}]]\n\n['.join(newContent),
     
 }
 
-R = S.post(URL, data=PARAMS_3)
+R = S.post(URL, data=PARAMS)
 DATA = R.json()
-
-print(DATA)
-
 
 
 
