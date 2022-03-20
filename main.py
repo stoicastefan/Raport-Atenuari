@@ -1,7 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
 from datetime import date
-
+from smtplib import SMTP_SSL, SMTP_SSL_PORT
+from email.message import EmailMessage
 source = requests.get('http://monitor.jcs.jo/onu/activated_onu.php').text
 
 soup = BeautifulSoup(source, 'lxml')
@@ -26,10 +27,7 @@ for raw in soup.find_all('tr')[1::]:
         highAtt.append(raw.find_all('td')[7].text)
     if status == 0 or status == 4 :
         linkLoss.append(raw.find_all('td')[7].text)
-print('Link loss este:')
-print(linkLoss)        
-print('High att este:')
-print(highAtt)    
+
 
 bodyPage = soup.body
 bodyPage.table.decompose()
@@ -41,6 +39,33 @@ f.write(f'\n|-\n| {stats}')
 
 f.write('\n|}')
 f.close()
+
+
+def openDeranjament(typeDeranjament, contract):
+
+    content= f'''Technical
+######
+Name: NOC ROMANIA
+######
+Phone: {contract}
+######
+Email: monitor@jcs.jo
+######
+Account number: {contract}
+######
+Message:{typeDeranjament}
+######
+Call back: I want to be called on the number below
+                '''
+    mail_raport = EmailMessage()
+    mail_raport.add_header('Subject', "New Message From Jordan European Internet")
+    mail_raport.set_content(content)
+    #Ne conectam si trimitem mailul
+    smtp_server = SMTP_SSL('mail.jcs.jo', port=SMTP_SSL_PORT)
+    smtp_server.login('monitor@jcs.jo', 'tpS#Np^3n3vR6$v5')
+    smtp_server.sendmail('monitor@jcs.jo', 'webmaster@jcs.jo', mail_raport.as_bytes())
+    #Ne deconectam de pe server
+    smtp_server.quit()
 
 
 # Functia primeste mac ONU din tabel si returneaza numarul de contract din ERP
@@ -81,11 +106,16 @@ with requests.Session() as s:
             raise Exception
         print(f'Statusul login-ului este: {login_request}')
         for macOnu in linkLoss:
-            print(f'Contractul clientului {macOnu} este {getContract(macOnu[5::], s)}(link loss)')        
+            contract = getContract(macOnu[5::], s)
+            print(f'Contractul clientului cu Mac ONU: {macOnu} este {contract}(link loss)') 
+           # openDeranjament('Link loss from ANM', contract )    
+            print(f'Deranjament deschis pentru contractul: {contract}')   
         for macOnu in highAtt:
-            print(f'Contractul clientului {macOnu} este {getContract(macOnu[5::], s)}(high att)')
+            print(f'Contractul clientului cu Mac ONU:  {macOnu} este {contract}(high att)')
     except Exception as e:
         print('Logarea nu a reusit')
+
+
 
 
 #Adaugam raportul in wiki
@@ -126,7 +156,7 @@ PARAMS = {
 R = S.post(URL, data=PARAMS)
 DATA = R.json()
 
-# Adauga link cu raportul de aenuare in pagina cu rapoarte
+# Adauga link cu raportul de atenuare in pagina cu rapoarte
 PARAMS = {
     "action": "parse",
     "page": "Rapoarte_atenuari",
@@ -138,8 +168,7 @@ R = S.get(url=URL, params=PARAMS)
 DATA = R.json()
 
 newContent = DATA["parse"]["wikitext"]["*"]
-newContent = newContent.split('[' , 0)
-
+newContent = newContent.split('[' , 1)
 
 
 #  POST request to edit a page
