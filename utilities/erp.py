@@ -76,5 +76,28 @@ class erp:
                 return self.get_client_data()[2].text
             except AttributeError as e:
                 print(f'clientul cu Mac ONU : {self.mac_onu} nu a fost gasit in ERP (asta inseamna ca o sa il cauti de mana in Fiber/ERP si ii faci deranjament sau daca nu il gasesti il anunti pe Dan!')
-                return 'Nu am gasit contractul in ERP'
+                
 
+        def get_neighours_mac_onu(self, location):
+            try:
+                vecini = []
+                source = self.session.get('https://erp.jcs.jo/apartments/manage/' \
+                                          '?radio_status_nenul=yes' \
+                                           '&filter_location=3' \
+                                           f'&field_location={location}'
+                ).text
+
+                soup = BeautifulSoup(source, 'lxml')        
+
+                tabel = soup.find('tbody')
+                for raw in tabel.find_all('tr'):
+                    client_data = raw.find_all('td')
+                    if(client_data[7].text != 'None'):
+                        vecini.append(client_data[7].text[6:].lower())
+                
+                return vecini
+            except AttributeError as e:
+                print(f'Clientul cu Mac ONU : {self.mac_onu} nu a'\
+                       'fost gasit in ERP '
+                     )
+                print(e)

@@ -30,3 +30,18 @@ class mail:
             smtp_server.sendmail('monitor@jcs.jo', 'webmaster@jcs.jo', mail_deranjament.as_bytes())
             #Ne deconectam de pe server
             smtp_server.quit()
+        
+        def open_deranjament_attbuilding( location):
+           
+            content= "\n".join(location)
+            
+            mail_deranjament = EmailMessage()
+            mail_deranjament.add_header('Subject', "Atenuare pe cladire")
+            mail_deranjament.set_content(content)
+            #Ne conectam si trimitem mailul
+            smtp_server = SMTP_SSL('mail.jcs.jo', port=SMTP_SSL_PORT)
+            smtp_server.login('monitor@jcs.jo', 'tpS#Np^3n3vR6$v5')
+            smtp_server.sendmail('monitor@jcs.jo', 'dan@square-media.ro', mail_deranjament.as_bytes())
+            smtp_server.sendmail('monitor@jcs.jo', 'gb@jcs.jo', mail_deranjament.as_bytes())
+            #Ne deconectam de pe server
+            smtp_server.quit()

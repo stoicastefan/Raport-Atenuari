@@ -7,6 +7,7 @@ link_loss  = []
 possible_high_att = {}
 high_att = {}
 very_high_att = {}
+buildings_with_att = []
 
 f = open("AllactivatedONUs.html", "r")
 source = f.read()
@@ -33,11 +34,11 @@ with open("srcFile", "w") as f:
         recive = float(raw.find_all('td')[9].text)
 
         if recive <= -33.5 :
-            very_high_att[raw.find_all('td')[7].text] = recive
+            very_high_att[raw.find_all('td')[7].text[6:]] = recive
         elif recive < -30 :
-            high_att[raw.find_all('td')[7].text] = recive
+            high_att[raw.find_all('td')[7].text[6:]] = recive
         elif recive <= -28:
-            possible_high_att[raw.find_all('td')[7].text] = recive
+            possible_high_att[raw.find_all('td')[7].text[6:]] = recive
 
         if status == 0 or status == 4 :
             link_loss.append(raw.find_all('td')[7].text)
@@ -81,23 +82,53 @@ with requests.Session() as s:
 
             client = erp(mac_onu[6:], s)
             contract = client.get_contract()
-            locatie = client.get_location()
+            location = client.get_location()
 
             if(contract == None):
                 print(f'Nu s-a putut gasi contractul cu Mac ONU {mac_onu}, vezi in Fiber!(daca e contractul de teste nu-i deschidem deranjament)')
             elif(contract != '655000025'):
-                print(f'Contractul clientului cu Mac ONU: {mac_onu} este {contract} in locatia {locatie} (link loss)') 
+                print(f'Contractul clientului cu Mac ONU: {mac_onu} este {contract} in locatia {location} (link loss)') 
                 #open_deranjament('Link loss from ANM', contract )    
                 print(f'Deranjament deschis pentru contractul: {contract}')   
 
-        print(high_att)
-        print(possible_high_att)
+
 
         for mac_onu in high_att:
-            client = erp(mac_onu[6:], s)
+
+            client = erp(mac_onu, s)
             contract = client.get_contract()
-            locatie = client.get_location()
-            if(contract != '654000025'):
-                print(f'Contractul clientului cu Mac ONU:  {mac_onu} este {contract} in locatia {locatie} (high att)')
+            location = client.get_location()
+            neighbours = client.get_neighours_mac_onu(location)
+            attenuations_of_neighbours ={}
+            
+            if location not in  buildings_with_att:
+
+                if(len(neighbours) > 1 ):
+
+                    for neighbour in neighbours:
+                        if(neighbour in high_att.keys()):
+                            attenuations_of_neighbours[neighbour] = high_att[neighbour]
+                        
+                        elif(neighbour in possible_high_att.keys()):
+                            attenuations_of_neighbours[neighbour] = possible_high_att[neighbour]
+
+                        elif(neighbour in very_high_att.keys()):
+                            attenuations_of_neighbours[neighbour] = very_high_att[neighbour]
+                        else:
+                            attenuations_of_neighbours[neighbour] = 0
+                        
+                    if(max(attenuations_of_neighbours.values()) - min(attenuations_of_neighbours.values()) <= 2.5):
+                         buildings_with_att.append(location)
+                         #mail.open_deranjament_attbuilding(location)
+                         print(f'Atenuare pe cladirea {location}')
+                elif(contract != '654000025'):
+                    print(f'Contractul clientului cu Mac ONU:  {mac_onu} este {contract} in locatia {location} (high att)')
+
+                
+                
+                elif(contract != '654000025' ):
+                    print(f'Contractul clientului cu Mac ONU:  {mac_onu} este {contract} in locatia {location} (high att)')
     except Exception as e:
-        print('Logarea nu a reusit')
+        template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+        message = template.format(type(e).__name__, e.args)
+        print(message)
