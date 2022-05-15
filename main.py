@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from utilities.erp import erp 
 from utilities.mail import mail
 from datetime import date
+from collections import OrderedDict
 
 
 
@@ -78,20 +79,31 @@ with requests.Session() as s:
             raise Exception
 
         # Deschidem deranjament pentru link loss
-        for mac_onu in link_loss:
-            client = erp(mac_onu, s)
-            contract = client.get_contract()
-            location = client.get_location()
+        print(f'Vrei sa deschizi deranjament la {len(high_att)}) clienti cu link loss? (y/n)')
+        confirmation = str(input())
+        if(confirmation == 'y'):
+            for mac_onu in link_loss:
+                client = erp(mac_onu, s)
+                contract = client.get_contract()
+                location = client.get_location()
 
-            if(contract == None):
-                print(f'Nu s-a putut gasi contractul cu Mac ONU {mac_onu}, vezi in Fiber!(daca e contractul de teste nu-i deschidem deranjament)')
-            elif(contract != '655000025'):
-                print(f'Contractul clientului cu Mac ONU: {mac_onu} este {contract} in locatia {location} (link loss)') 
-                mail.open_deranjament('Link loss from ANM', contract )    
-                print(f'Deranjament deschis pentru contractul: {contract}')   
+                if(contract == None):
+                    print(f'Nu s-a putut gasi contractul cu Mac ONU {mac_onu}, vezi in Fiber!(daca e contractul de teste nu-i deschidem deranjament)')
+                elif(contract != '655000025'):
+                    print(f'Contractul clientului cu Mac ONU: {mac_onu} este {contract} in locatia {location} (link loss)') 
+                    #mail.open_deranjament('Link loss from ANM', contract )    
+                    print(f'Deranjament deschis pentru contractul: {contract}')   
+            else :
+                pass
 
         #Verificam daca un client cu atenuare mare are atenuarea individual
         # sau pe cladire iar daca e individual deschidem deranjament 
+        
+        high_att = OrderedDict(high_att)
+        
+        print(f'Cate deranjamente pentru atenuari deschid(sunt {len(high_att)})')
+        numar_atenuari = int(input())
+
         for mac_onu in high_att:
 
             client = erp(mac_onu, s)
@@ -121,12 +133,21 @@ with requests.Session() as s:
                     if(max(attenuations_of_neighbours.values()) - min(attenuations_of_neighbours.values()) <= 2.5):
                             buildings_with_att.append(location)
                             print(f'atenuare pe cladirea {location}')
-                            mail.open_deranjament_attbuilding(location)
+                            ##mail.open_deranjament_attbuilding(location)
                             continue
                     else:
-                        print(f'Contractul clientului cu Mac ONU:  {mac_onu} este {contract} in locatia {location} (high att)')
+                        if(numar_atenuari > 0):
+                            #mail.open_deranjament('High att', contract )
+                            numar_atenuari = numar_atenuari-1
+                            --numar_atenuari
+                            print(f'Contractul clientului cu Mac ONU:  {mac_onu} este {contract} in locatia {location} (high att)')
+                        
                 elif(contract != '654000025'):
-                    print(f'Contractul clientului cu Mac ONU:  {mac_onu} este {contract} in locatia {location} (high att)')
+                    if(numar_atenuari > 0):
+                            #mail.open_deranjament('High att', contract )
+                            numar_atenuari = numar_atenuari-1
+                            --numar_atenuari
+                            print(f'Contractul clientului cu Mac ONU:  {mac_onu} este {contract} in locatia {location} (high att)')
 
         # Deschidem deranjament cu link loss pentru clientii cu atenuare peste 33.5
         for mac_onu in very_high_att:
@@ -140,7 +161,7 @@ with requests.Session() as s:
                 print(f'Nu s-a putut gasi contractul cu Mac ONU {mac_onu}, vezi in Fiber!(daca e contractul de teste nu-i deschidem deranjament)')
             elif(contract != '655000025'):
                 print(f'Contractul clientului cu Mac ONU: {mac_onu} este {contract} in locatia {location} (link loss)') 
-                mail.open_deranjament('Link loss from ANM', contract )    
+                #mail.open_deranjament('Link loss from ANM', contract )    
                 print(f'Deranjament deschis pentru contractul: {contract}')
 
         

@@ -2,6 +2,10 @@ import requests
 from bs4 import BeautifulSoup
 from utilities.erp import erp 
 from utilities.mail import mail
+from datetime import date
+from collections import OrderedDict
+
+
 
 link_loss  = []
 possible_high_att = {}
@@ -41,7 +45,7 @@ with open("srcFile", "w") as f:
             possible_high_att[raw.find_all('td')[7].text[6:]] = recive
 
         if status == 0 or status == 4 :
-            link_loss.append(raw.find_all('td')[7].text)
+            link_loss.append(raw.find_all('td')[7].text[6:  ])
 
 
     bodyPage = soup.body
@@ -54,7 +58,7 @@ with open("srcFile", "w") as f:
     f.write('\n|}')
     
 
-# Deschide o sesiune cu care ne logam in ERP din care luam numarul de contract clientilor
+# Deschide o sesiune cu care ne logam in ERP din care luam datele clientilor
 
 with requests.Session() as s:
     s.get('https://erp.jcs.jo/login/')
@@ -78,9 +82,9 @@ with requests.Session() as s:
         if(soup.find('title').text == 'Login - JCS ERP'):
             raise Exception
 
+        # Deschidem deranjament pentru link loss
         for mac_onu in link_loss:
-
-            client = erp(mac_onu[6:], s)
+            client = erp(mac_onu, s)
             contract = client.get_contract()
             location = client.get_location()
 
@@ -88,46 +92,78 @@ with requests.Session() as s:
                 print(f'Nu s-a putut gasi contractul cu Mac ONU {mac_onu}, vezi in Fiber!(daca e contractul de teste nu-i deschidem deranjament)')
             elif(contract != '655000025'):
                 print(f'Contractul clientului cu Mac ONU: {mac_onu} este {contract} in locatia {location} (link loss)') 
-                #open_deranjament('Link loss from ANM', contract )    
+                #mail.open_deranjament('Link loss from ANM', contract )    
                 print(f'Deranjament deschis pentru contractul: {contract}')   
 
-
+        #Verificam daca un client cu atenuare mare are atenuarea individual
+        # sau pe cladire iar daca e individual deschidem deranjament 
+        print(high_att)
+        high_att = OrderedDict(high_att)
+        
+        print(f'Cate deranjamente pentru atenuari deschid(sunt {len(high_att)})')
+        numar_atenuari = int(input())
 
         for mac_onu in high_att:
-
+            print(numar_atenuari)
             client = erp(mac_onu, s)
             contract = client.get_contract()
             location = client.get_location()
             neighbours = client.get_neighours_mac_onu(location)
-            attenuations_of_neighbours ={}
+            attenuations_of_neighbours = {}
             
             if location not in  buildings_with_att:
 
                 if(len(neighbours) > 1 ):
-
                     for neighbour in neighbours:
                         if(neighbour in high_att.keys()):
                             attenuations_of_neighbours[neighbour] = high_att[neighbour]
+                           
                         
                         elif(neighbour in possible_high_att.keys()):
                             attenuations_of_neighbours[neighbour] = possible_high_att[neighbour]
+                            
 
                         elif(neighbour in very_high_att.keys()):
                             attenuations_of_neighbours[neighbour] = very_high_att[neighbour]
                         else:
                             attenuations_of_neighbours[neighbour] = 0
                         
-                    if(max(attenuations_of_neighbours.values()) - min(attenuations_of_neighbours.values()) <= 2.5):
-                         buildings_with_att.append(location)
-                         #mail.open_deranjament_attbuilding(location)
-                         print(f'Atenuare pe cladirea {location}')
-                elif(contract != '654000025'):
-                    print(f'Contractul clientului cu Mac ONU:  {mac_onu} este {contract} in locatia {location} (high att)')
 
+                    if(max(attenuations_of_neighbours.values()) - min(attenuations_of_neighbours.values()) <= 2.5):
+                            buildings_with_att.append(location)
+                            print(f'atenuare pe cladirea {location}')
+                            #mail.open_deranjament_attbuilding(location)
+                            continue
+                    else:
+                        if(numar_atenuari > 0):
+                            #mail.open_deranjament('High att', contract )
+                            --numar_atenuari
+                            print(f'Contractul clientului cu Mac ONU:  {mac_onu} este {contract} in locatia {location} (high att)')
+                        
+                elif(contract != '654000025'):
+                    if(numar_atenuari > 0):
+                            #mail.open_deranjament('High att', contract )
+                            numar_atenuari = numar_atenuari-1
+                            print(f'Contractul clientului cu Mac ONU:  {mac_onu} este {contract} in locatia {location} (high att)')
+
+        # Deschidem deranjament cu link loss pentru clientii cu atenuare peste 33.5
+        for mac_onu in very_high_att:
+
+            client = erp(mac_onu, s)
+            contract = client.get_contract()
+            location = client.get_location()
+            
+            
+            if(contract == None):
+                print(f'Nu s-a putut gasi contractul cu Mac ONU {mac_onu}, vezi in Fiber!(daca e contractul de teste nu-i deschidem deranjament)')
+            elif(contract != '655000025'):
+                print(f'Contractul clientului cu Mac ONU: {mac_onu} este {contract} in locatia {location} (link loss)') 
+                mail.open_deranjament('Link loss from ANM', contract )    
+                print(f'Deranjament deschis pentru contractul: {contract}')
+
+        
                 
-                
-                elif(contract != '654000025' ):
-                    print(f'Contractul clientului cu Mac ONU:  {mac_onu} este {contract} in locatia {location} (high att)')
+
     except Exception as e:
         template = "An exception of type {0} occurred. Arguments:\n{1!r}"
         message = template.format(type(e).__name__, e.args)
