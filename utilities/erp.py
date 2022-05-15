@@ -58,9 +58,6 @@ class erp:
                 print(e)
 
             return "N-a gasit locatia"
-
-
-
         
         def get_contract(self):
             try:
@@ -70,10 +67,15 @@ class erp:
                 print(f'clientul cu Mac ONU : {self.mac_onu} nu a fost gasit in ERP (asta inseamna ca o sa il cauti de mana in Fiber/ERP si ii faci deranjament sau daca nu il gasesti il anunti pe Dan!')
                 return 'Nu am gasit contractul in ERP'
 
-
         def get_location(self):
             try:
                 return self.get_client_data()[2].text
+            except AttributeError as e:
+                print(f'clientul cu Mac ONU : {self.mac_onu} nu a fost gasit in ERP (asta inseamna ca o sa il cauti de mana in Fiber/ERP si ii faci deranjament sau daca nu il gasesti il anunti pe Dan!')
+                
+        def get_pon(self):
+            try:
+                return self.get_client_data()[10].text
             except AttributeError as e:
                 print(f'clientul cu Mac ONU : {self.mac_onu} nu a fost gasit in ERP (asta inseamna ca o sa il cauti de mana in Fiber/ERP si ii faci deranjament sau daca nu il gasesti il anunti pe Dan!')
                 
