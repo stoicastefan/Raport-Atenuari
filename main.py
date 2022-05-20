@@ -3,8 +3,6 @@ from bs4 import BeautifulSoup
 from utilities.erp import erp 
 from utilities.mail import mail
 from datetime import date
-from collections import OrderedDict
-
 
 
 link_loss  = []
@@ -14,8 +12,10 @@ very_high_att = {}
 link_loss_sort = {}
 buildings_with_att = []
 
+
 source = requests.get('http://monitor.jcs.jo/onu/activated_onu.php').text
 soup = BeautifulSoup(source, 'lxml')
+
 
 with open("srcFile", "w") as f:
 
@@ -51,7 +51,6 @@ with open("srcFile", "w") as f:
     stats = stats.replace('\n', '\n|-\n| ')
 
     f.write(f'\n|-\n| {stats}')
-
     f.write('\n|}')
     
 
@@ -74,7 +73,8 @@ with requests.Session() as s:
         )
     )
 
-    soup = BeautifulSoup(login_request.text, 'lxml')    
+    soup = BeautifulSoup(login_request.text, 'lxml')  
+
     try:
         if(soup.find('title').text == 'Login - JCS ERP'):
             raise Exception
@@ -85,40 +85,49 @@ with requests.Session() as s:
             client = erp(mac_onu, s)
             link_loss_sort[mac_onu] =  client.get_pon()
             
-
-        OrderedDict(link_loss_sort)
         for mac_onu in link_loss_sort:
             client = erp(mac_onu, s)
             print(f' Clientul cu locatia: {client.get_location()} si pon: {link_loss_sort[mac_onu]} este link_loss')
+
         print('------------------------------------------------------- ')
-        print(f'Vrei sa deschizi deranjament la {len(link_loss)} clienti cu link loss? (y/n)')
+        print(f'Vrei sa deschizi deranjament la {len(link_loss)} clienti cu link loss? (y/p/n)')
         confirmation = str(input())
+
         if(confirmation == 'y'):
-            for mac_onu in link_loss:
-                
+            for mac_onu in link_loss:                
                 client = erp(mac_onu, s)
                 contract = client.get_contract()
-                location = client.get_location()
+                location = client.get_location() 
 
-                if(contract == None):
+                if(contract == None or contract == "None" ):
                     print(f'Nu s-a putut gasi contractul cu Mac ONU {mac_onu}, vezi in Fiber!(daca e contractul de teste nu-i deschidem deranjament)')
                 elif(contract != '655000025'):
                     print(f'Contractul clientului cu Mac ONU: {mac_onu} este {contract} in locatia {location} (link loss)') 
                     mail.open_deranjament('Link loss from ANM', contract )    
-                    print(f'Deranjament deschis pentru contractul: {contract}')   
-            else :
-                pass
+                    print(f'Deranjament deschis pentru contractul: {contract}')
+
+        elif(confirmation == "p"):
+            for mac_onu in link_loss:                
+                client = erp(mac_onu, s)
+                contract = client.get_contract()
+                location = client.get_location() 
+
+                print(f"\nVrei sa deschizi deranjament pentru clientul cu locatia {location} si pon {link_loss_sort[mac_onu]} (y/n)")
+                confirmation = str(input())
+
+                if(confirmation == "y"):
+                    print(f'Contractul clientului cu Mac ONU: {mac_onu} este {contract} in locatia {location} (link loss)')
+                    print(f'Deranjament deschis pentru contractul: {contract}')                
 
         #Verificam daca un client cu atenuare mare are atenuarea individual
         # sau pe cladire iar daca e individual deschidem deranjament 
-        
-        high_att = OrderedDict(high_att)
-        
-        print('----------------------   HIGH ATT  --------------------')
+      
+        high_att = dict(sorted(high_att.items(), key=lambda x: x[1]))
+        print('--------------------high_att--------------------------')
         for mac_onu in high_att:
             client = erp(mac_onu, s)
             print(f'Clientul cu locatia: {client.get_location()} si pon: {client.get_pon()} are atenuarea: {high_att[mac_onu]}')
-        print('---------------------- --------------------------------')
+        print('------------------------------------------------------')
         print(f'Cate deranjamente pentru atenuari deschid(sunt {len(high_att)})')
         numar_atenuari = int(input())
 
@@ -136,12 +145,9 @@ with requests.Session() as s:
                     for neighbour in neighbours:
                         if(neighbour in high_att.keys()):
                             attenuations_of_neighbours[neighbour] = high_att[neighbour]
-                           
-                        
+                                                  
                         elif(neighbour in possible_high_att.keys()):
-                            attenuations_of_neighbours[neighbour] = possible_high_att[neighbour]
-                            
-
+                            attenuations_of_neighbours[neighbour] = possible_high_att[neighbour]                           
                         elif(neighbour in very_high_att.keys()):
                             attenuations_of_neighbours[neighbour] = very_high_att[neighbour]
                         else:
@@ -150,7 +156,7 @@ with requests.Session() as s:
 
                     if(max(attenuations_of_neighbours.values()) - min(attenuations_of_neighbours.values()) <= 2.5):
                             buildings_with_att.append(location)
-                            print(f'atenuare pe cladirea {location}')
+                            print(f'Atenuare pe cladirea {location}')
                             mail.open_deranjament_attbuilding(location)
                             continue
                     else:
@@ -173,8 +179,7 @@ with requests.Session() as s:
 
             client = erp(mac_onu, s)
             contract = client.get_contract()
-            location = client.get_location()
-            
+            location = client.get_location()           
             
             if(contract == None):
                 print(f'Nu s-a putut gasi contractul cu Mac ONU {mac_onu}, vezi in Fiber!(daca e contractul de teste nu-i deschidem deranjament)')
@@ -185,19 +190,15 @@ with requests.Session() as s:
 
         if (buildings_with_att):
             mail.open_deranjament_attbuilding("\n".join(buildings_with_att))
-              
-
+            pass
+                
     except Exception as e:
         template = "An exception of type {0} occurred. Arguments:\n{1!r}"
         message = template.format(type(e).__name__, e.args)
         print(message)
 
 
-
-
-
 #Adaugam raportul in wiki
-
 
 
 # POST request pentru log in.
@@ -210,8 +211,10 @@ PARAMS = {
     "format": "json"
 }
 
+
 R = S.get(url = URL, params=PARAMS)
 DATA = R.json()
+
 
 CSRF_TOKEN = DATA['query']['tokens']['csrftoken']
 
@@ -219,17 +222,19 @@ CSRF_TOKEN = DATA['query']['tokens']['csrftoken']
 
 f = open("srcFile", "r")
 
+
 today = date.today()
 d = today.strftime("%d.%m.%Y")
+
 
 PARAMS = {
     "action": "edit",
     "title": f"Raport pentru atenuari {d}",
     "token": CSRF_TOKEN,
     "format": "json",
-    "text": f.read(),
-    
+    "text": f.read(),  
 }
+
 
 R = S.post(URL, data=PARAMS)
 DATA = R.json()
@@ -242,8 +247,10 @@ PARAMS = {
     "format": "json"
 }
 
+
 R = S.get(url=URL, params=PARAMS)
 DATA = R.json()
+
 
 newContent = DATA["parse"]["wikitext"]["*"]
 newContent = newContent.split('[' , 1)
@@ -255,10 +262,9 @@ PARAMS = {
     "title": "Rapoarte_atenuari",
     "token": CSRF_TOKEN,
     "format": "json",
-    "text": f'\n\n[[Raport pentru atenuari {d}]]\n\n['.join(newContent),
-
-    
+    "text": f'\n\n[[Raport pentru atenuari {d}]]\n\n['.join(newContent),   
 }
+
 
 R = S.post(URL, data=PARAMS)
 DATA = R.json()
