@@ -61,7 +61,7 @@ with requests.Session() as s:
     login_csrftoken = s.cookies['csrftoken']
     login_data = {
         'username': 'stefan',
-        'password': 'stefan112',
+        'password': '*****',
         'csrfmiddlewaretoken': login_csrftoken
     }
 
